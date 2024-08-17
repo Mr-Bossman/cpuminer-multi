@@ -267,6 +267,7 @@ int scanhash_yescryptr8(int thr_id, struct work *work, uint32_t max_nonce, uint6
 int scanhash_yescryptr16(int thr_id, struct work *work, uint32_t max_nonce, uint64_t *hashes_done);
 int scanhash_yescryptr32(int thr_id, struct work *work, uint32_t max_nonce, uint64_t *hashes_done);
 int scanhash_zr5(int thr_id, struct work *work, uint32_t max_nonce, uint64_t *hashes_done);
+int scanhash_verus(int thr_id, struct work* work, uint32_t max_nonce, unsigned long *hashes_done);
 
 /* api related */
 void *api_thread(void *userdata);
@@ -415,6 +416,9 @@ struct work {
 	char *job_id;
 	size_t xnonce2_len;
 	unsigned char *xnonce2;
+	uint8_t valid_nonces;
+	uint8_t extra[1388];
+	uint8_t solution[1344];
 };
 
 struct stratum_job {
@@ -431,6 +435,8 @@ struct stratum_job {
 	unsigned char extra[64]; // like lbry claimtrie
 	bool clean;
 	double diff;
+	uint32_t shares_count;
+	unsigned char solution[1344];
 };
 
 struct stratum_ctx {
@@ -456,6 +462,9 @@ struct stratum_ctx {
 	pthread_mutex_t work_lock;
 
 	int bloc_height;
+	bool is_equihash;
+	int srvtime_diff;
+	int hash_ver;
 };
 
 bool stratum_socket_full(struct stratum_ctx *sctx, int timeout);
@@ -466,6 +475,17 @@ void stratum_disconnect(struct stratum_ctx *sctx);
 bool stratum_subscribe(struct stratum_ctx *sctx);
 bool stratum_authorize(struct stratum_ctx *sctx, const char *user, const char *pass);
 bool stratum_handle_method(struct stratum_ctx *sctx, const char *s);
+
+
+// equihash miner nonce "cursor" unique for each thread
+#define EQNONCE_OFFSET 30 /* 27:34 */
+
+bool verus_stratum_notify(struct stratum_ctx *sctx, json_t *params);
+bool verus_stratum_set_target(struct stratum_ctx *sctx, json_t *params);
+bool verus_stratum_submit(const char * rpc_user, struct work *work);
+bool verus_stratum_show_message(struct stratum_ctx *sctx, json_t *id, json_t *params);
+void verus_work_set_target(struct work* work, double diff);
+double verus_network_diff(struct work *work);
 
 /* rpc 2.0 (xmr) */
 extern bool jsonrpc_2;

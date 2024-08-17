@@ -117,7 +117,11 @@ cpuminer_SOURCES = \
   algo/x17.c \
   algo/xevan.c \
   algo/yescrypt.c \
-  algo/zr5.c
+  algo/zr5.c \
+  verus/haraka.c \
+  verus/verus_clhash.cpp \
+  verus/verus-stratum.cpp \
+  verus/verusscan.cpp
 
 disable_flags =
 

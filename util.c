@@ -1232,6 +1232,19 @@ static bool stratum_parse_extranonce(struct stratum_ctx *sctx, json_t *params, i
 	}
 	xn2_size = (int) json_integer_value(json_array_get(params, pndx+1));
 	if (!xn2_size) {
+		char algo[64] = { 0 };
+		//TODO: check this
+		get_currentalgo(algo, sizeof(algo));
+		if (strcmp(algo, "verus") == 0) {
+			int xn1_size = (int)strlen(xnonce1) / 2;
+			xn2_size = 32 - xn1_size;
+			if (xn1_size < 3 || xn1_size > 12) {
+				// This miner iterates the nonces at data32[30]
+				applog(LOG_ERR, "Unsupported extranonce size of %d (12 maxi)", xn1_size);
+				goto out;
+			}
+			goto skip_n2;
+		}
 		applog(LOG_ERR, "Failed to get extranonce2_size");
 		goto out;
 	}
@@ -1240,6 +1253,7 @@ static bool stratum_parse_extranonce(struct stratum_ctx *sctx, json_t *params, i
 		goto out;
 	}
 
+skip_n2:
 	pthread_mutex_lock(&sctx->work_lock);
 	if (sctx->xnonce1)
 		free(sctx->xnonce1);
@@ -1686,7 +1700,7 @@ static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 	const char *extradata = NULL;
 	size_t coinb1_size, coinb2_size;
 	bool clean, ret = false;
-	int merkle_count, i, p=0;
+	int merkle_count, int_time, i, p=0;
 	bool has_claim, has_roots;
 	json_t *merkle_arr;
 	uchar **merkle;
@@ -1694,6 +1708,11 @@ static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 	get_currentalgo(algo, sizeof(algo));
 	has_claim = strcmp(algo, "lbry") == 0 && json_array_size(params) == 10;
 	has_roots = strcmp(algo, "phi2") == 0 && json_array_size(params) == 10;
+
+	//TODO: FIX ME
+	if(sctx->is_equihash && !strcmp(algo, "verus")){
+		return verus_stratum_notify(sctx, params);
+	}
 
 	job_id = json_string_value(json_array_get(params, p++));
 	prevhash = json_string_value(json_array_get(params, p++));
@@ -1728,6 +1747,16 @@ static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 		applog(LOG_ERR, "Stratum notify: invalid parameters");
 		goto out;
 	}
+
+	/* store stratum server time diff */
+	hex2bin((uchar *)&int_time, ntime, 4);
+	int_time = swab32(int_time) - (uint32_t) time(0);
+	if (int_time > sctx->srvtime_diff) {
+		sctx->srvtime_diff = int_time;
+		if (opt_protocol && int_time > 20)
+			applog(LOG_DEBUG, "stratum time is at least %ds in the future", int_time);
+	}
+
 	merkle = (uchar**) malloc(merkle_count * sizeof(char *));
 	for (i = 0; i < merkle_count; i++) {
 		const char *s = json_string_value(json_array_get(merkle_arr, i));
@@ -2048,11 +2077,15 @@ static bool stratum_show_message(struct stratum_ctx *sctx, json_t *id, json_t *p
 	char *s;
 	json_t *val;
 	bool ret;
+	char algo[64] = { 0 };
+
+	get_currentalgo(algo, sizeof(algo));
+	if (sctx->is_equihash && strcmp(algo, "verus"))
+		return verus_stratum_show_message(sctx, id, params);
 
 	val = json_array_get(params, 0);
 	if (val)
 		applog(LOG_NOTICE, "MESSAGE FROM SERVER: %s", json_string_value(val));
-	
 	if (!id || json_is_null(id))
 		return true;
 
@@ -2107,6 +2140,15 @@ bool stratum_handle_method(struct stratum_ctx *sctx, const char *s)
 	}
 	if (!strcasecmp(method, "mining.set_difficulty")) {
 		ret = stratum_set_difficulty(sctx, params);
+		goto out;
+	}
+	// TODO: fixme
+	if (!strcasecmp(method, "mining.set_target")) {
+		sctx->is_equihash = true;
+		char algo[64] = { 0 };
+		get_currentalgo(algo, sizeof(algo));
+		if (strcmp(algo, "verus") == 0)
+			ret = verus_stratum_set_target(sctx, params);
 		goto out;
 	}
 	if (!strcasecmp(method, "mining.set_extranonce")) {

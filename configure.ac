@@ -164,8 +164,8 @@ if test -n "$with_crypto" ; then
    LIBCURL="$LIBCURL -lssl -lcrypto"
 fi
 
-CFLAGS="$CFLAGS $LIBCURL_CFLAGS"
-CPPFLAGS="$CPPFLAGS $LIBCURL_CPPFLAGS"
+CFLAGS="$CFLAGS $LIBCURL_CFLAGS -mpclmul -maes -mssse3"
+CPPFLAGS="$CPPFLAGS $LIBCURL_CPPFLAGS -mpclmul -maes -mssse3"
 LDFLAGS="$LDFLAGS $LIBCURL_LDFLAGS"
 
 AC_CHECK_LIB([z],[gzopen],[],[])

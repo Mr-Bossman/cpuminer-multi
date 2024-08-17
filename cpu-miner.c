@@ -145,6 +145,7 @@ enum algos {
 	ALGO_YESCRYPTR16,
 	ALGO_YESCRYPTR32,
 	ALGO_ZR5,
+	ALGO_VERUS,
 	ALGO_COUNT
 };
 
@@ -217,6 +218,7 @@ static const char *algo_names[] = {
 	"yescryptr16",
 	"yescryptr32",
 	"zr5",
+	"verus"
 	"\0"
 };
 
@@ -386,6 +388,7 @@ Options:\n\
                           yescryptr16  Yescrypt r16\n\
                           yescryptr32  Yescrypt r32\n\
                           zr5          ZR5\n\
+                          verus        VerusHash\n\
   -o, --url=URL         URL of mining server\n\
   -O, --userpass=U:P    username:password pair for mining server\n\
   -u, --user=USERNAME   username for mining server\n\
@@ -501,7 +504,7 @@ static struct option const options[] = {
 
 static struct work g_work = {{ 0 }};
 static time_t g_work_time = 0;
-static pthread_mutex_t g_work_lock;
+pthread_mutex_t g_work_lock;
 static bool submit_old = false;
 static char *lp_id;
 
@@ -604,6 +607,12 @@ static inline void work_copy(struct work *dest, const struct work *src)
 /* compute nbits to get the network diff */
 static void calc_network_diff(struct work *work)
 {
+
+	if (opt_algo == ALGO_VERUS) {
+		net_diff = verus_network_diff(work);
+		return;
+	}
+
 	// sample for diff 43.281 : 1c05ea29
 	// todo: endian reversed on longpoll could be zr5 specific...
 	uint32_t nbits = have_longpoll ? work->data[18] : swab32(work->data[18]);
@@ -1127,6 +1136,17 @@ static bool submit_upstream_work(CURL *curl, struct work *work)
 	char s[JSON_BUF_LEN];
 	int i;
 	bool rc = false;
+
+
+	//TODO: Check me
+	if (have_stratum && stratum.is_equihash) {
+		struct work submit_work;
+		memcpy(&submit_work, work, sizeof(struct work));
+		if(opt_algo == ALGO_VERUS)
+			verus_stratum_submit(rpc_user, &submit_work);
+		stratum.job.shares_count++;
+		return true;
+	}
 
 	/* pass if the previous hash is not the current previous hash */
 	if (opt_algo != ALGO_SIA && !submit_old && memcmp(&work->data[1], &g_work.data[1], 32)) {
@@ -1736,13 +1756,19 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		pthread_mutex_unlock(&sctx->work_lock);
 	} else {
 		free(work->job_id);
+		//TODO: Check me
 		work->job_id = strdup(sctx->job.job_id);
+		//work->job_id = malloc(128);
+		//snprintf(work->job_id, 128, "%07x %s",
+		//	be32dec(sctx->job.ntime) & 0xfffffff, sctx->job.job_id);
 		work->xnonce2_len = sctx->xnonce2_size;
 		work->xnonce2 = (uchar*) realloc(work->xnonce2, sctx->xnonce2_size);
 		memcpy(work->xnonce2, sctx->job.xnonce2, sctx->xnonce2_size);
 
 		/* Generate merkle root */
 		switch (opt_algo) {
+			//TODO: Check me
+			case ALGO_VERUS:
 			case ALGO_DECRED:
 				// getwork over stratum, getwork merkle + header passed in coinb1
 				memcpy(merkle_root, sctx->job.coinbase, 32);
@@ -1828,6 +1854,13 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 			for (i = 0; i < 8; i++) // prevhash
 				work->data[12+i] = ((uint32_t*)merkle_root)[i];
 			//applog_hex(&work->data[0], 80);
+		} else if (opt_algo == ALGO_VERUS) {
+			memcpy(&work->data[9], sctx->job.coinbase, 32+32); // merkle [9..16] + reserved
+			work->data[25] = le32dec(sctx->job.ntime);
+			work->data[26] = le32dec(sctx->job.nbits);
+			memcpy(&work->solution, sctx->job.solution, 1344);
+			memcpy(&work->data[27], sctx->xnonce1, sctx->xnonce1_size & 0x1F); // pool 		extranonce
+			work->data[35] = 0x80;
 		} else {
 			work->data[17] = le32dec(sctx->job.ntime);
 			work->data[18] = le32dec(sctx->job.nbits);
@@ -1888,6 +1921,10 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 			case ALGO_KECCAK:
 			case ALGO_LYRA2:
 				work_set_target(work, sctx->job.diff / (128.0 * opt_diff_factor));
+				break;
+			case ALGO_VERUS:
+				memcpy(work->target, sctx->job.extra, 32);
+				verus_work_set_target(work, sctx->job.diff / opt_diff_factor);
 				break;
 			default:
 				work_set_target(work, sctx->job.diff / opt_diff_factor);
@@ -2068,6 +2105,10 @@ static void *miner_thread(void *userdata)
 
 		uint32_t *nonceptr = (uint32_t*) (((char*)work.data) + nonce_oft);
 
+		if (opt_algo == ALGO_VERUS) { //TODO: check me
+			nonceptr = &work.data[EQNONCE_OFFSET]; // 27 is pool extranonce (256bits nonce space)
+			wkcmp_sz = nonce_oft = 4+32+32;
+		}
 		if (have_stratum) {
 			while (!jsonrpc_2 && time(NULL) >= g_work_time + 120)
 				sleep(1);
@@ -2108,6 +2149,13 @@ static void *miner_thread(void *userdata)
 				continue;
 			}
 		}
+
+
+		// FIXME: was if (strcmp(work.job_id, g_work.job_id))
+		// reset shares id counter on new job
+		if (strcmp(stratum.job.job_id, g_work.job_id))
+			stratum.job.shares_count = 0;
+
 		if (memcmp(&work.data[wkcmp_offset], &g_work.data[wkcmp_offset], wkcmp_sz) ||
 			jsonrpc_2 ? memcmp(((uint8_t*) work.data) + 43, ((uint8_t*) g_work.data) + 43, 33) : 0)
 		{
@@ -2135,6 +2183,10 @@ static void *miner_thread(void *userdata)
 			nonceptr[1] += 0x10;
 			nonceptr[1] |= thr_id;
 			//applog_hex(nonceptr, 8);
+		} else if (opt_algo == ALGO_VERUS) {
+			nonceptr[1]++;
+			nonceptr[2] = rand() << 24 | rand() << 8 | thr_id;
+			//applog_hex(&work.data[27], 32);
 		}
 
 		// prevent scans before a job is received
@@ -2481,6 +2533,9 @@ static void *miner_thread(void *userdata)
 			break;
 		case ALGO_ZR5:
 			rc = scanhash_zr5(thr_id, &work, max_nonce, &hashes_done);
+			break;
+		case ALGO_VERUS:
+			rc = scanhash_verus(thr_id, &work, max_nonce, &hashes_done);
 			break;
 		default:
 			/* should never happen */
@@ -3502,6 +3557,10 @@ int main(int argc, char *argv[]) {
 		opt_n_threads = num_cpus;
 	if (!opt_n_threads)
 		opt_n_threads = 1;
+
+	if (opt_algo == ALGO_VERUS) {
+		opt_extranonce = false;  // disable subscribe
+	}
 
 	if (opt_algo == ALGO_QUARK) {
 		init_quarkhash_contexts();

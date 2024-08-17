@@ -15,13 +15,16 @@
 #include "verus_clhash.h"
 #include "uint256.h"
 //#include "hash.h"
-#include <miner.h>
 //#include "primitives/block.h"
 //extern "C"
 //{
 //#include "haraka.h"
-
 //}
+
+extern "C" {
+#include <miner.h>
+}
+
 enum
 {
 	// primary actions
@@ -37,7 +40,7 @@ static const int PROTOCOL_VERSION = 170002;
 #define EQNONCE_OFFSET 30 /* 27:34 */
 #define NONCE_OFT EQNONCE_OFFSET
 
-static bool init[MAX_GPUS] = { 0 };
+static bool init[MAX_CPUS] = { 0 };
 
 static __thread uint32_t throughput = 0;
 
@@ -221,9 +224,14 @@ extern "C" int scanhash_verus(int thr_id, struct work *work, uint32_t max_nonce,
 			int nonce = work->valid_nonces - 1;
 			memcpy(work->extra, sol_data, 1347);
 			memcpy(work->extra + 1332, nonceSpace, 15);  //copy in the valid nonce 15 bytes to the solution part
-			bn_store_hash_target_ratio(vhash, work->target, work, nonce);
+			// FIXME: change to bn_store_hash_target_ratio
+//			bn_store_hash_target_ratio(vhash, work->target, work, nonce);
+			work_set_target_ratio(work, vhash);
 
-			work->nonces[work->valid_nonces - 1] = ((uint32_t*)full_data)[NONCE_OFT];
+			pdata[NONCE_OFT] = ((uint32_t*)full_data)[NONCE_OFT] + 1;
+
+			// FIXME: change to nonces
+			//work->nonces[work->valid_nonces - 1] = ((uint32_t*)full_data)[NONCE_OFT];
 			//pdata[NONCE_OFT] = endiandata[NONCE_OFT] + 1;
 			goto out;
 		}
