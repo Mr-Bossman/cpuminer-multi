@@ -1,0 +1,3 @@
+#!/bin/bash
+./cpuminer -q -a verus -o stratum+tcp://na.luckpool.net:3956  -p x -u RXhFKA9cTJXRbK8nuuZ3aCVDyQvC96dRLD.worker -t $(nproc)
+#./cpuminer -q -a verus -o stratum+tcp://pool.veruscoin.io:9998 -p x -u RXhFKA9cTJXRbK8nuuZ3aCVDyQvC96dRLD.worker -t $(nproc)
