@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <cmath>
 extern "C" {
 #include <miner.h>
 }
@@ -18,24 +19,10 @@ extern "C" {
 extern pthread_mutex_t g_work_lock;
 }
 
-// ZEC uses a different scale to compute diff... 
-// sample targets to diff (stored in the reverse byte order in work->target)
-// 0007fff800000000000000000000000000000000000000000000000000000000 is stratum diff 32
-// 003fffc000000000000000000000000000000000000000000000000000000000 is stratum diff 4
-// 00ffff0000000000000000000000000000000000000000000000000000000000 is stratum diff 1
-double target_to_diff_verus(uint32_t* target)
-{
-	uchar* tgt = (uchar*) target;
-	uint64_t m =
-		(uint64_t)tgt[30] << 24 |
-		(uint64_t)tgt[29] << 16 |
-		(uint64_t)tgt[28] << 8  |
-		(uint64_t)tgt[27] << 0;
-
-	if (!m)
-		return 0.;
-	else
-		return (double)0xffff0000UL/m;
+double target_to_diff_verus(uint32_t target){
+    const unsigned exponent_diff = 8 * (0x20 - ((target >> 24) & 0xFF));
+    const double significand = target & 0xFFFFFF;
+    return std::ldexp(0x0f0f0f / significand, exponent_diff);
 }
 
 void diff_to_target_verus(uint32_t *target, double diff)
@@ -57,31 +44,23 @@ void diff_to_target_verus(uint32_t *target, double diff)
 			((uint8_t*)target)[k] = 0xff;
 	}
 }
-
-/* compute nbits to get the network diff */
 double verus_network_diff(struct work *work)
 {
-	//KMD bits: "1e 015971",
-	//KMD target: "00 00 015971000000000000000000000000000000000000000000000000000000",
-	//KMD bits: "1d 686aaf",
-	//KMD target: "00 0000 686aaf0000000000000000000000000000000000000000000000000000",
-	uint32_t nbits = work->data[26];
-	uint32_t bits = (nbits & 0xffffff);
-	int16_t shift = (swab32(nbits) & 0xff);
-	shift = (31 - shift) * 8; // 8 bits shift for 0x1e, 16 for 0x1d
-	uint64_t tgt64 = swab32(bits);
-	tgt64 = tgt64 << shift;
-	uint8_t net_target[32] = { 0 };
-	for (int b=0; b<8; b++)
-		net_target[31-b] = ((uint8_t*)&tgt64)[b];
-	double d = target_to_diff_verus((uint32_t*)net_target);
-	return d;
+    uint32_t nbits = work->data[26];
+    double d = target_to_diff_verus(nbits);
+    // applog(LOG_BLUE, "target nbits: %08x", nbits);
+    // applog(LOG_BLUE, "target diff: %f", d);
+    return d;
 }
 
 void verus_work_set_target(struct work* work, double diff)
 {
-	diff_to_target_verus(work->target, diff);
+	// target is given as data by the equihash stratum
+	// memcpy(work->target, stratum.job.claim, 32); // claim field is only used for lbry
+	// diff_to_target_equi(work->target, diff); // we already set the target
 	work->targetdiff = diff;
+	// applog(LOG_BLUE, "diff %f to target :", diff);
+	// applog_hex(work->target, 32);
 }
 
 bool verus_stratum_set_target(struct stratum_ctx *sctx, json_t *params)
@@ -94,17 +73,42 @@ bool verus_stratum_set_target(struct stratum_ctx *sctx, json_t *params)
 
 	hex2bin(target_bin, target_hex, 32);
 	memset(target_be, 0x00, 32);
+
+	uint8_t *bits_start = nullptr;
 	int filled = 0;
-	for (int i=0; i<32; i++) {
+	for (int i = 0; i < 32; i++)
+	{
 		if (filled == 8) break;
-		target_be[31-i] = target_bin[i];
-		if (target_bin[i]) filled++;
+		target_be[31 - i] = target_bin[i];
+		if (target_bin[i])
+		{
+			filled++;
+			if(bits_start == nullptr)
+				bits_start = &target_bin[i];
+		}
 	}
+
+	int padding = &target_bin[31] - bits_start;
+
+	uint32_t target_bits;
+	uint8_t exponent = ((padding * 8 + 1) + 7) / 8;
+
+	memcpy(&target_bits, &target_be[exponent - 3], 3);  // coefficient
+	target_bits |= (exponent << 24);     				// exponent
+
+	// applog_hex(target_bin, 32);
+	// applog_hex(target_be, 32);
+	// applog(LOG_BLUE, "target_bits %08x", target_bits);
+
 	memcpy(sctx->job.extra, target_be, 32);
 
 	pthread_mutex_lock(&g_work_lock);
-	sctx->next_diff = target_to_diff_verus((uint32_t*) &target_be);
+	// sctx->next_diff = target_to_diff_equi((uint32_t*) &target_be);
+	sctx->next_diff = target_to_diff_verus(target_bits);
 	pthread_mutex_unlock(&g_work_lock);
+
+	//applog(LOG_BLUE, "low diff %f", sctx->next_diff);
+	//applog_hex(target_be, 32);
 
 	return true;
 }
