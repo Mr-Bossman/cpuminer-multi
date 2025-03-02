@@ -243,7 +243,7 @@ bool verus_stratum_submit(const char * rpc_user, struct work *work)
 	// long nonce without pool prefix (extranonce)
 	noncestr = (char*)malloc((nonce_len * 2) + 1);
 	solhex = (char*) calloc(1, 1344*2 + 64);
-	char* solHexRestore = (char*) calloc(128, 1);
+	char* solHexRestore = (char*) calloc(129, 1);
 	if (!solhex || !noncestr) {
 		applog(LOG_ERR, "unable to alloc share memory");
 		return false;
