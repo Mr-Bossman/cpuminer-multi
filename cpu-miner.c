@@ -3510,6 +3510,8 @@ int main(int argc, char *argv[]) {
 	long flags;
 	int i, err;
 
+	srand(time(NULL));
+
 	pthread_mutex_init(&applog_lock, NULL);
 
 	show_credits();
