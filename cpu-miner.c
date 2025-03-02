@@ -2164,7 +2164,7 @@ static void *miner_thread(void *userdata)
 			nonceptr = (uint32_t*) (((char*)work.data) + nonce_oft);
 			*nonceptr = 0xffffffffU / opt_n_threads * thr_id;
 			if (opt_randomize)
-				nonceptr[0] += ((rand()*4) & UINT32_MAX) / opt_n_threads;
+				nonceptr[0] += ((rand()*4u) & UINT32_MAX) / opt_n_threads;
 		} else
 			++(*nonceptr);
 		pthread_mutex_unlock(&g_work_lock);
