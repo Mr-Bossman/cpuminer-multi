@@ -2097,6 +2097,9 @@ static void *miner_thread(void *userdata)
 			nonce_oft = 32;
 			wkcmp_offset = 32 + 16;
 			wkcmp_sz = 32; // 35 * 4
+		} else if (opt_algo == ALGO_VERUS) {
+			nonce_oft = EQNONCE_OFFSET * 4;
+			wkcmp_sz = 4+32+32;
 		}
 
 		if (jsonrpc_2) {
@@ -2105,10 +2108,6 @@ static void *miner_thread(void *userdata)
 
 		uint32_t *nonceptr = (uint32_t*) (((char*)work.data) + nonce_oft);
 
-		if (opt_algo == ALGO_VERUS) { //TODO: check me
-			nonceptr = &work.data[EQNONCE_OFFSET]; // 27 is pool extranonce (256bits nonce space)
-			wkcmp_sz = nonce_oft = 4+32+32;
-		}
 		if (have_stratum) {
 			while (!jsonrpc_2 && time(NULL) >= g_work_time + 120)
 				sleep(1);
