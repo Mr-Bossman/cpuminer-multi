@@ -2150,12 +2150,6 @@ static void *miner_thread(void *userdata)
 			}
 		}
 
-
-		// FIXME: was if (strcmp(work.job_id, g_work.job_id))
-		// reset shares id counter on new job
-		if (strcmp(stratum.job.job_id, g_work.job_id))
-			stratum.job.shares_count = 0;
-
 		if (memcmp(&work.data[wkcmp_offset], &g_work.data[wkcmp_offset], wkcmp_sz) ||
 			jsonrpc_2 ? memcmp(((uint8_t*) work.data) + 43, ((uint8_t*) g_work.data) + 43, 33) : 0)
 		{
@@ -2184,6 +2178,9 @@ static void *miner_thread(void *userdata)
 			nonceptr[1] |= thr_id;
 			//applog_hex(nonceptr, 8);
 		} else if (opt_algo == ALGO_VERUS) {
+			// reset shares id counter on new job
+			if (have_stratum &&  strcmp(stratum.job.job_id, g_work.job_id))
+				stratum.job.shares_count = 0;
 			nonceptr[1]++;
 			nonceptr[2] = (uint32_t)rand() << 24 | (uint32_t)rand() << 8 | thr_id;
 			//applog_hex(&work.data[27], 32);
