@@ -2185,7 +2185,7 @@ static void *miner_thread(void *userdata)
 			//applog_hex(nonceptr, 8);
 		} else if (opt_algo == ALGO_VERUS) {
 			nonceptr[1]++;
-			nonceptr[2] = rand() << 24 | rand() << 8 | thr_id;
+			nonceptr[2] = (uint32_t)rand() << 24 | (uint32_t)rand() << 8 | thr_id;
 			//applog_hex(&work.data[27], 32);
 		}
 
