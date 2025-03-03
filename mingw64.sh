@@ -1,3 +1,5 @@
+set -e
+
 ./autogen.sh
 
 CURL_PREFIX=/usr/local

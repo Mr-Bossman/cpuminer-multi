@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 if [ "$OS" = "Windows_NT" ]; then
     ./mingw64.sh
@@ -13,9 +14,9 @@ rm -f config.status
 if [[ "$OSTYPE" == "darwin"* ]]; then
     ./nomacro.pl
     ./configure \
-        CFLAGS="-march=native -O2 -Ofast -flto -DUSE_ASM -pg" \
-        --with-crypto=/usr/local/opt/openssl \
-        --with-curl=/usr/local/opt/curl
+        CFLAGS="-march=native -O2 -Ofast -flto -DUSE_ASM" \
+        --with-crypto=/opt/homebrew/opt/openssl \
+        --with-curl=/opt/homebrew/opt/curl
     make -j4
     strip cpuminer
     exit 0
