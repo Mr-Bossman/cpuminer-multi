@@ -1,0 +1,49 @@
+name: Create release
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+# A workflow run is made up of one or more jobs that can run
+# sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "release"
+  release:
+    runs-on: ubuntu-latest
+
+    needs: [linux-x86_64, macos-x86_64]
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref_name }}
+        run: |
+          gh release create "$tag" \
+              --repo="$GITHUB_REPOSITORY" \
+              --title="${GITHUB_REPOSITORY#*/} ${tag#v}" \
+              --generate-notes  release-artifacts/*
+
+  linux-x86_64:
+    uses: ./.github/workflows/linux-x86_64.yml
+
+  macos-x86_64:
+    uses: ./.github/workflows/macos-x86_64.yml
+
+  #msys2:
+  #  uses: ./.github/workflows/msys2.yml
+
+  #msys2_clang:
+  #  uses: ./.github/workflows/msys2_clang.yml

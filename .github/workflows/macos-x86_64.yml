@@ -1,0 +1,36 @@
+name: MacOS-x86_64
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on: [workflow_call, workflow_dispatch]
+
+
+# A workflow run is made up of one or more jobs that can run
+# sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    runs-on: macos-13
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job
+      # can access it
+      - uses: actions/checkout@v3
+
+      - name: setup prerequisites
+        shell: bash
+        # openssl
+        run: |
+          brew update
+          brew install automake zlib
+      - name: build
+        shell: bash
+        run: |
+          ./build.sh
+          mv cpuminer cpuminer-macos-x86_64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cpuminer-macos-x86_64
+          path: cpuminer-macos-x86_64
