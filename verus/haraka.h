@@ -27,7 +27,11 @@ Optimized Implementations for Haraka256 and Haraka512
 #ifndef HARAKA_H_
 #define HARAKA_H_
 
+#ifdef __arm__
+#include "sse2neon/sse2neon.h"
+#else
 #include "immintrin.h"
+#endif
 
 #define NUMROUNDS 5
 
@@ -133,7 +137,11 @@ Optimized Implementations for Haraka256 and Haraka512
 #ifdef HARAKA_H_
 
 
+#ifdef __arm__
+#include "sse2neon/sse2neon.h"
+#else
 #include "immintrin.h"
+#endif
 
 #define NUMROUNDS 5
 

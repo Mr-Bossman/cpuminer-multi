@@ -156,6 +156,7 @@ endif
 
 if ARCH_ARM
 cpuminer_CFLAGS += -D__arm__
+cpuminer_CPPFLAGS += -D__arm__
 endif
 
 if HAVE_WINDOWS

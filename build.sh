@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+git submodule update --init
+
 if [ "$OS" = "Windows_NT" ]; then
     ./mingw64.sh
     exit 0
