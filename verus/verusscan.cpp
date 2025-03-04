@@ -158,7 +158,7 @@ extern "C" void inline Verus2hash(unsigned char *hash, unsigned char *curBuf, un
 }
 
 
-extern "C" int scanhash_verus(int thr_id, struct work *work, uint32_t max_nonce, unsigned long *hashes_done)
+extern "C" int scanhash_verus(int thr_id, struct work *work, uint32_t max_nonce, uint64_t *hashes_done)
 {
 
 	uint32_t *pdata = work->data;
