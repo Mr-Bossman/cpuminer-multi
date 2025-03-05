@@ -23,7 +23,7 @@ jobs:
         with:
           msystem: MINGW64
           update: true
-          install: mingw-w64-x86_64-cc mingw-w64-x86_64-autotools mingw-w64-x86_64-curl mingw-w64-x86_64-openssl mingw-w64-x86_64-zlib
+          install: git mingw-w64-x86_64-cc mingw-w64-x86_64-autotools mingw-w64-x86_64-curl mingw-w64-x86_64-openssl mingw-w64-x86_64-zlib
 
       - name: build
         run: |
