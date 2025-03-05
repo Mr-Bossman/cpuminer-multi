@@ -1,4 +1,4 @@
-name: MacOS x86_64
+name: MacOS Arm64
 
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events but only for the master branch
@@ -10,7 +10,7 @@ on: [workflow_call, workflow_dispatch]
 jobs:
   # This workflow contains a single job called "build"
   build:
-    runs-on: macos-13
+    runs-on: macos-latest
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -28,9 +28,9 @@ jobs:
         shell: bash
         run: |
           ./build.sh
-          mv cpuminer cpuminer-macos-x86_64
+          mv cpuminer cpuminer-macos-arm64
 
       - uses: actions/upload-artifact@v4
         with:
-          name: cpuminer-macos-x86_64
-          path: cpuminer-macos-x86_64
+          name: cpuminer-macos-arm64
+          path: cpuminer-macos-arm64
