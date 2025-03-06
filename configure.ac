@@ -147,10 +147,9 @@ AC_ARG_WITH([curl],
    [  --with-curl=PATH         prefix where curl is installed [default=/usr]])
 
 if test -n "$with_curl" ; then
-   LIBCURL_CFLAGS="$LIBCURL_CFLAGS -I$with_curl/include"
-   LIBCURL_CPPFLAGS="$LIBCURL_CPPFLAGS -I$with_curl/include"
-   LIBCURL_LDFLAGS="-L$with_curl/lib $LIBCURL_LDFLAGS"
-   LIBCURL="-lcurl -lz"
+   LIBCURL_CFLAGS +="-I$with_curl/include"
+   LIBCURL_CPPFLAGS +="-I$with_curl/include"
+   LIBCURL_LDFLAGS +="-L$with_curl/lib"
 fi
 
 # SSL install path (for mingw : --with-crypto=/usr/local/ssl)
@@ -158,31 +157,45 @@ AC_ARG_WITH([crypto],
    [  --with-crypto=PATH       prefix where openssl crypto is installed [default=/usr]])
 
 if test -n "$with_crypto" ; then
-   LIBCURL_CFLAGS="$LIBCURL_CFLAGS -I$with_crypto/include"
-   LIBCURL_CPPFLAGS="$LIBCURL_CPPFLAGS -I$with_crypto/include"
-   LIBCURL_LDFLAGS="-L$with_crypto/lib $LIBCURL_LDFLAGS"
-   LIBCURL="$LIBCURL -lssl -lcrypto"
+   LIBCRYPTO_CFLAGS += "-I$with_crypto/include"
+   LIBCRYPTO_CPPFLAGS += "-I$with_crypto/include"
+   LIBCRYPTO_LDFLAGS += "-L$with_crypto/lib"
 fi
 
-CFLAGS="$CFLAGS $LIBCURL_CFLAGS -mpclmul -maes -mssse3"
-CPPFLAGS="$CPPFLAGS $LIBCURL_CPPFLAGS -mpclmul -maes -mssse3"
-LDFLAGS="$LDFLAGS $LIBCURL_LDFLAGS"
+# SSL install path (for mingw : --with-ssl=/usr/local/ssl)
+AC_ARG_WITH([ssl],
+   [  --with-ssl=PATH       prefix where openssl ssl is installed [default=/usr]])
 
-AC_CHECK_LIB([z],[gzopen],[],[])
-AC_CHECK_LIB([crypto],[EVP_DigestFinal_ex], crypto=yes, [AC_MSG_ERROR([OpenSSL crypto library required])])
-AC_CHECK_LIB([ssl],[SSL_free], ssl=yes, ssl=no)
+if test -n "$with_ssl" ; then
+   LIBSSL_CFLAGS += "-I$with_ssl/include"
+   LIBSSL_CPPFLAGS += "-I$with_ssl/include"
+   LIBSSL_LDFLAGS += "-L$with_ssl/lib"
+fi
 
-# AC_CHECK_LIB([curl], [curl_multi_timeout],
-#    have_libcurl=yes,
-#    have_libcurl=no AC_MSG_ERROR([curl library required])
-# )
+#CFLAGS="$CFLAGS $LIBCURL_CFLAGS -mpclmul -maes -mssse3"
+#CPPFLAGS="$CPPFLAGS $LIBCURL_CPPFLAGS -mpclmul -maes -mssse3"
+#LDFLAGS="$LDFLAGS $LIBCURL_LDFLAGS"
+
+AC_CHECK_LIB([z],[gzopen])
+AC_CHECK_LIB([crypto],[EVP_DigestFinal_ex])
+AC_CHECK_LIB([ssl],[SSL_free])
+AC_CHECK_LIB([curl], [curl_multi_timeout])
 
 # LIBCURL_CHECK_CONFIG([yes], 7.15, curlconfig=yes, curlconfig=no)
 
-AC_SUBST(LIBCURL)
+PKG_CHECK_MODULES([LIBCRYPTO], [libcrypto])
+
 AC_SUBST(LIBCURL_CFLAGS)
 AC_SUBST(LIBCURL_CPPFLAGS)
-# AC_SUBST(LIBCURL_LDFLAGS)
+AC_SUBST(LIBCURL_LDFLAGS)
+
+AC_SUBST(LIBCRYPTO_CFLAGS)
+AC_SUBST(LIBCRYPTO_CPPFLAGS)
+AC_SUBST(LIBCRYPTO_LDFLAGS)
+
+AC_SUBST(LIBSSL_CFLAGS)
+AC_SUBST(LIBSSL_CPPFLAGS)
+AC_SUBST(LIBSSL_LDFLAGS)
 
 AC_SUBST(JANSSON_LIBS)
 AC_SUBST(PTHREAD_FLAGS)

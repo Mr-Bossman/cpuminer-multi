@@ -144,10 +144,10 @@ if HAVE_WINDOWS
    cpuminer_SOURCES += compat/winansi.c
 endif
 
-cpuminer_LDFLAGS	= @LDFLAGS@
-cpuminer_LDADD	= @LIBCURL@ @JANSSON_LIBS@ @PTHREAD_LIBS@ @WS2_LIBS@
-cpuminer_CPPFLAGS = @LIBCURL_CPPFLAGS@ $(ALL_INCLUDES)
-cpuminer_CFLAGS   = -Wno-pointer-sign -Wno-pointer-to-int-cast $(disable_flags)
+cpuminer_LDFLAGS	= @LDFLAGS@ @LIBCURL_LDFLAGS@ @LIBCRYPTO_LDFLAGS@ @LIBSSL_LDFLAGS@
+cpuminer_LDADD	= @JANSSON_LIBS@ @PTHREAD_LIBS@ @WS2_LIBS@
+cpuminer_CPPFLAGS = @LIBCURL_CPPFLAGS@ @LIBCRYPTO_CPPFLAGS@ @LIBSSL_CPPFLAGS@ $(ALL_INCLUDES)
+cpuminer_CFLAGS   = @LIBCURL_CFLAGS@ @LIBCRYPTO_CFLAGS@ @LIBSSL_CFLAGS@ -Wno-pointer-sign -Wno-pointer-to-int-cast $(disable_flags)
 
 if HAVE_WINDOWS
 cpuminer_CFLAGS += -Wl,--stack,10485760
@@ -157,6 +157,11 @@ endif
 if ARCH_ARM
 cpuminer_CFLAGS += -D__arm__
 cpuminer_CPPFLAGS += -D__arm__
+endif
+
+if ARCH_x86_64
+cpuminer_CFLAGS += -mpclmul -maes -mssse3
+cpuminer_CPPFLAGS += -mpclmul -maes -mssse3
 endif
 
 if HAVE_WINDOWS
